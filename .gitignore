@@ -1,0 +1,14 @@
+.esphome/
+.pioenvs/
+.piolibdeps/
+.pio/
+build/
+*.bin
+*.elf
+secrets.yaml
+*.key
+*.pem
+.DS_Store
+Thumbs.db
+__pycache__/
+*.pyc
