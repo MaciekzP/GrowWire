@@ -1,0 +1,395 @@
+esphome:
+  name: growatt-test
+  friendly_name: Growatt TL3-S Test
+
+esp32:
+  board: esp32dev
+  framework:
+    type: arduino
+
+logger:
+
+api:
+  encryption:
+    key: !secret api_key_base64   # fill in secrets.yaml
+
+ota:
+  platform: esphome
+  password: !secret ota_password  # fill in secrets.yaml
+
+wifi:
+  ssid: !secret wifi_ssid
+  password: !secret wifi_password
+  ap:
+    ssid: "Growatt Test Fallback"
+    password: "fallback"
+
+time:
+  - platform: sntp
+    id: sntp_time
+
+uart:
+  id: uart_modbus
+  tx_pin: GPIO17
+  rx_pin: GPIO16
+  baud_rate: 9600
+  stop_bits: 1
+  parity: NONE
+
+modbus:
+  id: modbus1
+  uart_id: uart_modbus
+  send_wait_time: 500ms
+  flow_control_pin:
+    number: GPIO4
+    inverted: true   # LOW = TX
+
+modbus_controller:
+  - id: growatt_controller
+    address: 1
+    modbus_id: modbus1
+    update_interval: 2s
+    command_throttle: 1s
+    max_cmd_retries: 2
+    offline_skip_updates: 30
+    setup_priority: -10
+
+sensor:
+  - platform: uptime
+    name: "Node Uptime"
+    update_interval: 10s
+
+  - platform: wifi_signal
+    name: "WiFi RSSI"
+    update_interval: 10s
+
+  # PV status (numeric)
+  - platform: modbus_controller
+    modbus_controller_id: growatt_controller
+    name: "PV Status Code"
+    id: pv_status_code
+    register_type: read
+    address: 0
+    value_type: U_WORD
+    accuracy_decimals: 0
+    internal: true
+
+  # PV total power (U_DWORD ×0.1 W)
+  - platform: modbus_controller
+    modbus_controller_id: growatt_controller
+    name: "PV Total Power"
+    id: pv_total_power
+    register_type: read
+    address: 1
+    value_type: U_DWORD
+    register_count: 2
+    unit_of_measurement: "W"
+    device_class: power
+    state_class: measurement
+    accuracy_decimals: 1
+    filters: [ { multiply: 0.1 } ]
+
+  # PV1
+  - platform: modbus_controller
+    modbus_controller_id: growatt_controller
+    name: "PV1 Voltage"
+    id: pv1_voltage
+    register_type: read
+    address: 3
+    value_type: U_WORD
+    unit_of_measurement: "V"
+    device_class: voltage
+    state_class: measurement
+    accuracy_decimals: 1
+    filters: [ { multiply: 0.1 } ]
+
+  - platform: modbus_controller
+    modbus_controller_id: growatt_controller
+    name: "PV1 Current"
+    id: pv1_current
+    register_type: read
+    address: 4
+    value_type: U_WORD
+    unit_of_measurement: "A"
+    device_class: current
+    state_class: measurement
+    accuracy_decimals: 1
+    filters: [ { multiply: 0.1 } ]
+
+  - platform: modbus_controller
+    modbus_controller_id: growatt_controller
+    name: "PV1 Power"
+    id: pv1_power
+    register_type: read
+    address: 5
+    value_type: U_DWORD
+    register_count: 2
+    unit_of_measurement: "W"
+    device_class: power
+    state_class: measurement
+    accuracy_decimals: 1
+    filters: [ { multiply: 0.1 } ]
+
+  # PV2
+  - platform: modbus_controller
+    modbus_controller_id: growatt_controller
+    name: "PV2 Voltage"
+    id: pv2_voltage
+    register_type: read
+    address: 7
+    value_type: U_WORD
+    unit_of_measurement: "V"
+    device_class: voltage
+    state_class: measurement
+    accuracy_decimals: 1
+    filters: [ { multiply: 0.1 } ]
+
+  - platform: modbus_controller
+    modbus_controller_id: growatt_controller
+    name: "PV2 Current"
+    id: pv2_current
+    register_type: read
+    address: 8
+    value_type: U_WORD
+    unit_of_measurement: "A"
+    device_class: current
+    state_class: measurement
+    accuracy_decimals: 1
+    filters: [ { multiply: 0.1 } ]
+
+  - platform: modbus_controller
+    modbus_controller_id: growatt_controller
+    name: "PV2 Power"
+    id: pv2_power
+    register_type: read
+    address: 9
+    value_type: U_DWORD
+    register_count: 2
+    unit_of_measurement: "W"
+    device_class: power
+    state_class: measurement
+    accuracy_decimals: 1
+    filters: [ { multiply: 0.1 } ]
+
+  # AC totals & grid
+  - platform: modbus_controller
+    modbus_controller_id: growatt_controller
+    name: "AC Total Power"
+    id: ac_total_power
+    register_type: read
+    address: 11
+    value_type: U_DWORD
+    register_count: 2
+    unit_of_measurement: "W"
+    device_class: power
+    state_class: measurement
+    accuracy_decimals: 1
+    filters: [ { multiply: 0.1 } ]
+
+  - platform: modbus_controller
+    modbus_controller_id: growatt_controller
+    name: "AC Frequency"
+    id: ac_freq
+    register_type: read
+    address: 13
+    value_type: U_WORD
+    unit_of_measurement: "Hz"
+    device_class: frequency
+    state_class: measurement
+    accuracy_decimals: 2
+    filters: [ { multiply: 0.01 } ]
+
+  # Many FW expose L-L at 14/18/22 — convert to L-N (0.1/√3)
+  - platform: modbus_controller
+    modbus_controller_id: growatt_controller
+    name: "AC Voltage Phase R"
+    id: ac_v_r
+    register_type: read
+    address: 14
+    value_type: U_WORD
+    unit_of_measurement: "V"
+    device_class: voltage
+    state_class: measurement
+    accuracy_decimals: 1
+    filters: [ { multiply: 0.057735 } ]
+
+  - platform: modbus_controller
+    modbus_controller_id: growatt_controller
+    name: "AC Voltage Phase S"
+    id: ac_v_s
+    register_type: read
+    address: 18
+    value_type: U_WORD
+    unit_of_measurement: "V"
+    device_class: voltage
+    state_class: measurement
+    accuracy_decimals: 1
+    filters: [ { multiply: 0.057735 } ]
+
+  - platform: modbus_controller
+    modbus_controller_id: growatt_controller
+    name: "AC Voltage Phase T"
+    id: ac_v_t
+    register_type: read
+    address: 22
+    value_type: U_WORD
+    unit_of_measurement: "V"
+    device_class: voltage
+    state_class: measurement
+    accuracy_decimals: 1
+    filters: [ { multiply: 0.057735 } ]
+
+  - platform: modbus_controller
+    modbus_controller_id: growatt_controller
+    name: "AC Current Phase R"
+    id: ac_i_r
+    register_type: read
+    address: 15
+    value_type: U_WORD
+    unit_of_measurement: "A"
+    device_class: current
+    state_class: measurement
+    accuracy_decimals: 1
+    filters: [ { multiply: 0.1 } ]
+
+  - platform: modbus_controller
+    modbus_controller_id: growatt_controller
+    name: "AC Current Phase S"
+    id: ac_i_s
+    register_type: read
+    address: 19
+    value_type: U_WORD
+    unit_of_measurement: "A"
+    device_class: current
+    state_class: measurement
+    accuracy_decimals: 1
+    filters: [ { multiply: 0.1 } ]
+
+  - platform: modbus_controller
+    modbus_controller_id: growatt_controller
+    name: "AC Current Phase T"
+    id: ac_i_t
+    register_type: read
+    address: 23
+    value_type: U_WORD
+    unit_of_measurement: "A"
+    device_class: current
+    state_class: measurement
+    accuracy_decimals: 1
+    filters: [ { multiply: 0.1 } ]
+
+  - platform: modbus_controller
+    modbus_controller_id: growatt_controller
+    name: "AC Power Phase R"
+    id: ac_p_r
+    register_type: read
+    address: 16
+    value_type: U_DWORD
+    register_count: 2
+    unit_of_measurement: "W"
+    device_class: power
+    state_class: measurement
+    accuracy_decimals: 1
+    filters: [ { multiply: 0.1 } ]
+
+  - platform: modbus_controller
+    modbus_controller_id: growatt_controller
+    name: "AC Power Phase S"
+    id: ac_p_s
+    register_type: read
+    address: 20
+    value_type: U_DWORD
+    register_count: 2
+    unit_of_measurement: "W"
+    device_class: power
+    state_class: measurement
+    accuracy_decimals: 1
+    filters: [ { multiply: 0.1 } ]
+
+  - platform: modbus_controller
+    modbus_controller_id: growatt_controller
+    name: "AC Power Phase T"
+    id: ac_p_t
+    register_type: read
+    address: 24
+    value_type: U_DWORD
+    register_count: 2
+    unit_of_measurement: "W"
+    device_class: power
+    state_class: measurement
+    accuracy_decimals: 1
+    filters: [ { multiply: 0.1 } ]
+
+  # Energy
+  - platform: modbus_controller
+    modbus_controller_id: growatt_controller
+    name: "Generated Energy Today"
+    id: energy_today
+    register_type: read
+    address: 26
+    value_type: U_DWORD
+    register_count: 2
+    unit_of_measurement: "kWh"
+    device_class: energy
+    state_class: total_increasing
+    accuracy_decimals: 1
+    filters: [ { multiply: 0.1 } ]
+
+  - platform: modbus_controller
+    modbus_controller_id: growatt_controller
+    name: "Generated Energy Total"
+    id: energy_total
+    register_type: read
+    address: 28
+    value_type: U_DWORD
+    register_count: 2
+    unit_of_measurement: "kWh"
+    device_class: energy
+    state_class: total_increasing
+    accuracy_decimals: 1
+    filters: [ { multiply: 0.1 } ]
+
+  # Temperatures
+  - platform: modbus_controller
+    modbus_controller_id: growatt_controller
+    name: "Inverter Temperature"
+    id: inverter_temp
+    register_type: read
+    address: 32
+    value_type: S_WORD
+    unit_of_measurement: "°C"
+    device_class: temperature
+    state_class: measurement
+    accuracy_decimals: 1
+    filters: [ { multiply: 0.1 } ]
+
+  - platform: modbus_controller
+    modbus_controller_id: growatt_controller
+    name: "IPM Temperature"
+    id: ipm_temp
+    register_type: read
+    address: 41
+    value_type: S_WORD
+    unit_of_measurement: "°C"
+    device_class: temperature
+    state_class: measurement
+    accuracy_decimals: 1
+    filters: [ { multiply: 0.1 } ]
+
+binary_sensor:
+  - platform: template
+    name: "Inverter Awake"
+    device_class: power
+    lambda: |-
+      return (id(ac_v_r).state > 100.0f) || (id(ac_v_s).state > 100.0f) || (id(ac_v_t).state > 100.0f);
+
+text_sensor:
+  - platform: template
+    name: "PV Status"
+    update_interval: 2s
+    lambda: |-
+      int code = (int) id(pv_status_code).state;
+      if (code == 0) return std::string("Waiting");
+      if (code == 1) return std::string("Normal");
+      if (code == 3) return std::string("Fault");
+      return std::string("Unknown");
